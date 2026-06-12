@@ -72,4 +72,15 @@ public class ExchangeRateController {
                     .body(ApiResponse.error("Error: " + e.getMessage()));
         }
     }
+
+    /**
+     * GET /api/v1/exchange-rate/test-scrape
+     * Endpoint de diagnóstico (solo desarrollo)
+     */
+    @GetMapping("/test-scrape")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<String>> testScraping() {
+        String html = bcvScrapingService.testScraping();
+        return ResponseEntity.ok(ApiResponse.ok("Diagnóstico BCV", html));
+    }
 }

@@ -22,10 +22,9 @@ public class BCVScrapingService {
     
     @Value("${bcv.scraping.enabled:true}")
     private boolean scrapingEnabled;
-    
+
     /**
-     * Se ejecuta todos los días a las 8:00 AM
-     * Cron: segundo minuto hora día-del-mes mes día-de-la-semana
+     * Actualización automática programada
      */
     @Scheduled(cron = "${bcv.scraping.cron:0 0 8 * * MON-FRI}")
     public void updateBCVRateAutomatically() {
@@ -38,7 +37,6 @@ public class BCVScrapingService {
             BigDecimal rate = scrapeBCVRate();
             
             if (rate != null && rate.compareTo(BigDecimal.ZERO) > 0) {
-                // Verificar si la tasa es diferente a la actual
                 BigDecimal currentRate = exchangeRateService.getCurrentRate();
                 
                 if (currentRate == null || rate.compareTo(currentRate) != 0) {
@@ -47,63 +45,121 @@ public class BCVScrapingService {
                 } else {
                     log.info("📊 Tasa BCV sin cambios: Bs. {}", rate);
                 }
-            } else {
-                log.warn("⚠️ No se pudo obtener tasa BCV válida");
             }
         } catch (Exception e) {
-            log.error("❌ Error al hacer scraping BCV: {}", e.getMessage(), e);
+            log.error("❌ Error en scraping automático BCV: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Método principal de scraping
+     */
+    public BigDecimal scrapeBCVRate() {
+        try {
+            String url = "https://www.bcv.org.ve/";
+            
+            // 1. Conectar a la página
+            Document doc = Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .timeout(15000)
+                    .get();
+            
+            // 2. Buscar la tasa en diferentes ubicaciones posibles
+            
+            // Opción A: Buscar dentro del div #dolar (estructura principal)
+            Element dolarSection = doc.select("#dolar").first();
+            if (dolarSection != null) {
+                // Buscar el strong que contiene la tasa
+                Element rateElement = dolarSection.select("strong").first();
+                if (rateElement != null) {
+                    String rateStr = rateElement.text().trim();
+                    return parseRate(rateStr);
+                }
+            }
+            
+            // Opción B: Buscar por clase recuadrotsmc_center
+            Element rateElement = doc.select(".recuadrotsmc_center strong").first();
+            if (rateElement != null) {
+                String rateStr = rateElement.text().trim();
+                return parseRate(rateStr);
+            }
+            
+            // Opción C: Buscar cualquier strong que tenga formato de número
+            Elements strongElements = doc.select("strong");
+            for (Element strong : strongElements) {
+                String text = strong.text().trim();
+                // Verificar si tiene formato de número con coma
+                if (text.matches("\\d{1,3}(?:\\.\\d{3})*,\\d+")) {
+                    return parseRate(text);
+                }
+            }
+            
+            log.warn("No se encontró la tasa BCV en la página");
+            return null;
+            
+        } catch (Exception e) {
+            log.error("Error al conectar con BCV: {}", e.getMessage());
+            throw new RuntimeException("No se pudo obtener la tasa del BCV", e);
         }
     }
     
     /**
-     * Método público para scraping manual
+     * Parsea el texto de la tasa a BigDecimal
+     * Ejemplo: "582,68620000" -> 582.68620000
      */
-    public BigDecimal scrapeBCVRate() {
+    private BigDecimal parseRate(String rateText) {
         try {
-            // URL oficial del BCV
-            String url = "https://www.bcv.org.ve";
+            // Limpiar el texto
+            String cleanRate = rateText
+                    .trim()
+                    .replaceAll("\\s+", "")     // Eliminar espacios
+                    .replace(".", "")            // Eliminar separadores de miles (582.686 -> 582686)
+                    .replace(",", ".");          // Convertir coma decimal a punto (582,68 -> 582.68)
             
+            log.debug("Tasa parseada: {} -> {}", rateText, cleanRate);
+            
+            return new BigDecimal(cleanRate).setScale(2, RoundingMode.HALF_UP);
+            
+        } catch (NumberFormatException e) {
+            log.error("Error al parsear tasa: '{}'", rateText, e);
+            return null;
+        }
+    }
+    
+    /**
+     * Prueba de scraping (método público para debug)
+     */
+    public String testScraping() {
+        try {
+            String url = "https://www.bcv.org.ve/";
             Document doc = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-                    .header("Accept-Language", "es-VE,es;q=0.9,en;q=0.8")
+                    .userAgent("Mozilla/5.0")
                     .timeout(15000)
                     .get();
             
-            // Selector para la tasa del dólar (puede necesitar ajustes si BCV cambia su HTML)
-            // Estructura típica del BCV 2024:
-            Element dolarDiv = doc.select("#dolar").first();
+            // Mostrar estructura para debug
+            StringBuilder sb = new StringBuilder();
+            sb.append("=== ESTRUCTURA BCV ===\n");
             
-            if (dolarDiv != null) {
-                // Buscar el valor dentro del div del dólar
-                Element rateElement = dolarDiv.select("strong").first();
+            Element dolar = doc.select("#dolar").first();
+            if (dolar != null) {
+                sb.append("Div #dolar encontrado:\n");
+                sb.append(dolar.html().substring(0, Math.min(500, dolar.html().length())));
+                sb.append("\n...\n\n");
                 
-                if (rateElement != null) {
-                    String rateText = rateElement.text()
-                            .trim()
-                            .replace(".", "")  // Eliminar separadores de miles
-                            .replace(",", "."); // Convertir coma decimal a punto
-                    
-                    return new BigDecimal(rateText).setScale(2, RoundingMode.HALF_UP);
+                Elements strongs = dolar.select("strong");
+                sb.append("Elementos strong encontrados: ").append(strongs.size()).append("\n");
+                for (Element s : strongs) {
+                    sb.append("  - ").append(s.text()).append("\n");
                 }
+            } else {
+                sb.append("Div #dolar NO encontrado\n");
             }
             
-            // Selector alternativo (por si cambian la estructura)
-            Elements posiblesTasas = doc.select(".recuadrotsmc_center strong");
-            for (Element el : posiblesTasas) {
-                String text = el.text().trim();
-                if (text.matches("[\\d.,]+")) {
-                    String rateText = text.replace(".", "").replace(",", ".");
-                    return new BigDecimal(rateText).setScale(2, RoundingMode.HALF_UP);
-                }
-            }
-            
-            log.warn("No se encontró la tasa en la estructura esperada del BCV");
-            return null;
+            return sb.toString();
             
         } catch (Exception e) {
-            log.error("Error en scraping BCV: {}", e.getMessage());
-            throw new RuntimeException("Error al obtener tasa BCV: " + e.getMessage());
+            return "Error: " + e.getMessage();
         }
     }
 }
