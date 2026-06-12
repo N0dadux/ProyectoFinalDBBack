@@ -37,6 +37,9 @@ public class ExchangeRateEntity {
  
     @Column(name = "registered_at", nullable = false, updatable = false)
     private LocalDateTime registeredAt;
+
+    @Column(name = "is_automatic", nullable = false)
+    private boolean automatic = false;
  
     // Quién registró esta tasa (ADMIN o EMPLOYEE)
     @ManyToOne(fetch = FetchType.LAZY)

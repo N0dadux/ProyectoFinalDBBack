@@ -40,6 +40,12 @@ public class UserService {
     public UserSummaryResponse findById(Integer id) {
         return toSummary(getOrThrow(id));
     }
+
+    public UserEntity findByEmail(String email){
+        return (userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Usuario no encontrado con email: " + email)));
+    }
  
     // ── RF-SEG-10: Crear empleado (solo ADMIN) ────────────────────────────────
  

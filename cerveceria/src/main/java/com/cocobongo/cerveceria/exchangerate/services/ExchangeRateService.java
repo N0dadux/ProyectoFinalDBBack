@@ -1,23 +1,28 @@
 package com.cocobongo.cerveceria.exchangerate.services;
  
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.cocobongo.cerveceria.common.exception.BusinessException;
 import com.cocobongo.cerveceria.exchangerate.dto.ExchangeRateRequest;
 import com.cocobongo.cerveceria.exchangerate.dto.ExchangeRateResponse;
 import com.cocobongo.cerveceria.exchangerate.entities.ExchangeRateEntity;
 import com.cocobongo.cerveceria.exchangerate.repositories.ExchangeRateRepository;
-import com.cocobongo.cerveceria.users.entities.UserEntity;
+import com.cocobongo.cerveceria.users.entities.UserEntity; 
+import com.cocobongo.cerveceria.users.services.UserService;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
- 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
  
 @Service
 @RequiredArgsConstructor
 public class ExchangeRateService {
  
     private final ExchangeRateRepository exchangeRateRepository;
+    private final UserService userService;
  
     // ── Consulta: tasa vigente ─────────────────────────────────────────────────
  
@@ -57,6 +62,23 @@ public class ExchangeRateService {
  
         ExchangeRateEntity saved = exchangeRateRepository.save(newRate);
         return toResponse(saved);
+    }
+
+    /**
+     * Actualización automática por scraping (sin usuario autenticado)
+     */
+    @Transactional
+    public void updateRateAutomatically(BigDecimal rate) {
+        // Buscar usuario sistema o crear uno por defecto
+        UserEntity systemUser = userService.findByEmail("sistema@cocobongo.com");
+                
+        ExchangeRateEntity entity = new ExchangeRateEntity();
+        entity.setRate(rate);
+        entity.setRegisteredBy(systemUser);
+        entity.setRegisteredAt(LocalDateTime.now());
+        entity.setAutomatic(true); // Campo opcional para identificar actualizaciones automáticas
+        
+        exchangeRateRepository.save(entity);
     }
  
     // ── Interno ────────────────────────────────────────────────────────────────
