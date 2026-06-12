@@ -61,6 +61,17 @@ app:
   jwt:
     secret: ${JWT_SECRET:dev_secret_key_cambiar_en_produccion_minimo_256_bits}
 
+# ─── CONFIGURACIÓN SCRAPING BCV ─────────────
+bcv:
+  scraping:
+    enabled: true
+    # Lunes a Viernes a las 8:00 AM, 12:00 PM y 4:00 PM
+    cron: "0 0 8,12,16 * * MON-FRI"
+    # Para pruebas en desarrollo (cada 5 minutos):
+    # cron: "0 */5 * * * *"
+    url: "https://www.bcv.org.ve/"
+    timeout: 15000
+
 # ─── LOGGING ─────────────────────────────────
 logging:
   level:
@@ -69,6 +80,7 @@ logging:
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE  # Muestra valores de parámetros
+    com.cocobongo.cerveceria.exchangerate.services.BCVScrapingService: DEBUG
 
 # ─── SERVIDOR ────────────────────────────────
 server:
@@ -116,15 +128,26 @@ app:
   jwt:
     secret: ${JWT_SECRET}           # Variable de entorno (requerida)
 
+# ─── CONFIGURACIÓN SCRAPING BCV ─────────────
+bcv:
+  scraping:
+    enabled: true
+    # Solo una vez al día en producción (8:00 AM)
+    cron: "0 0 8 * * MON-FRI"
+    url: "https://www.bcv.org.ve/"
+    timeout: 15000
+
 logging:
   level:
     root: WARN
     com.cocobongo.cerveceria: INFO
+    com.cocobongo.cerveceria.exchangerate.services.BCVScrapingService: INFO
 
 server:
   port: ${PORT:8080}
   error:
     include-stacktrace: never       # No exponer stacktrace al usuario
+
 
 ---
 # =============================================
