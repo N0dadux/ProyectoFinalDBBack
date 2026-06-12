@@ -70,7 +70,7 @@ public class ExchangeRateService {
     @Transactional
     public void updateRateAutomatically(BigDecimal rate) {
         // Buscar usuario sistema o crear uno por defecto
-        UserEntity systemUser = userService.findByEmail("sistema@cocobongo.com");
+        UserEntity systemUser = userService.findByEmail("cocobongo@gmail.com");
                 
         ExchangeRateEntity entity = new ExchangeRateEntity();
         entity.setRate(rate);

@@ -1,24 +1,29 @@
 package com.cocobongo.cerveceria.exchangerate.controllers;
- 
+
 import com.cocobongo.cerveceria.common.dto.ApiResponse;
 import com.cocobongo.cerveceria.exchangerate.dto.ExchangeRateRequest;
 import com.cocobongo.cerveceria.exchangerate.dto.ExchangeRateResponse;
 import com.cocobongo.cerveceria.exchangerate.services.ExchangeRateService;
 import com.cocobongo.cerveceria.users.entities.UserEntity;
+import com.cocobongo.cerveceria.exchangerate.services.BCVScrapingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import java.math.BigDecimal;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
- 
+
 @RestController
 @RequestMapping("/api/v1/exchange-rate")
 @RequiredArgsConstructor
 public class ExchangeRateController {
- 
+
     private final ExchangeRateService exchangeRateService;
- 
+    private final BCVScrapingService bcvScrapingService;
+
     /**
      * GET /api/v1/exchange-rate/current
      * Tasa BCV vigente — usada por el dashboard y por el frontend
@@ -30,7 +35,7 @@ public class ExchangeRateController {
     public ResponseEntity<ApiResponse<ExchangeRateResponse>> getCurrent() {
         return ResponseEntity.ok(ApiResponse.ok(exchangeRateService.getCurrent()));
     }
- 
+
     /**
      * PATCH /api/v1/exchange-rate
      * Actualiza la tasa BCV del día.
@@ -42,9 +47,29 @@ public class ExchangeRateController {
     public ResponseEntity<ApiResponse<ExchangeRateResponse>> updateRate(
             @Valid @RequestBody ExchangeRateRequest request,
             @AuthenticationPrincipal UserEntity currentUser) {
- 
+
         ExchangeRateResponse response = exchangeRateService.updateRate(request, currentUser);
         return ResponseEntity.ok(
                 ApiResponse.ok("Tasa BCV actualizada correctamente", response));
+    }
+
+    @PostMapping("/scrape")
+    @PreAuthorize("hasRole('ADMIN', 'EMPLOYEE')")
+    public ResponseEntity<ApiResponse<ExchangeRateResponse>> scrapeNow() {
+        try {
+            BigDecimal rate = bcvScrapingService.scrapeBCVRate();
+            if (rate != null) {
+                ExchangeRateRequest request = new ExchangeRateRequest();
+                request.setRate(rate);
+                // Aquí necesitas obtener el usuario actual del contexto
+                return ResponseEntity.ok(
+                        ApiResponse.ok("Tasa BCV actualizada desde el BCV: Bs. " + rate, null));
+            }
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("No se pudo obtener la tasa del BCV"));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Error: " + e.getMessage()));
+        }
     }
 }
