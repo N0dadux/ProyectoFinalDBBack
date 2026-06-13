@@ -69,7 +69,7 @@ bcv:
     cron: "0 0 8,12,16 * * MON-FRI"
     # Para pruebas en desarrollo (cada 5 minutos):
     # cron: "0 */5 * * * *"
-    url: "https://www.bcv.org.ve/"
+    url: "https://ve.dolarapi.com/v1/dolares/oficial"
     timeout: 15000
 
 # ─── LOGGING ─────────────────────────────────
@@ -134,8 +134,8 @@ bcv:
     enabled: true
     # Solo una vez al día en producción (8:00 AM)
     cron: "0 0 8 * * MON-FRI"
-    url: "https://www.bcv.org.ve/"
-    timeout: 15000
+    url: "https://ve.dolarapi.com/v1/dolares/oficial"
+    timeout: 45000
 
 logging:
   level:

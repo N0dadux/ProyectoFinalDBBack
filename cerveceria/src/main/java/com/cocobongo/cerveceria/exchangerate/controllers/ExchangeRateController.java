@@ -54,7 +54,7 @@ public class ExchangeRateController {
     }
 
     @PostMapping("/scrape")
-    @PreAuthorize("hasRole('ADMIN', 'EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'EMPLOYEE')")
     public ResponseEntity<ApiResponse<ExchangeRateResponse>> scrapeNow() {
         try {
             BigDecimal rate = bcvScrapingService.scrapeBCVRate();
@@ -76,11 +76,12 @@ public class ExchangeRateController {
     /**
      * GET /api/v1/exchange-rate/test-scrape
      * Endpoint de diagnóstico (solo desarrollo)
-     */
+     *
     @GetMapping("/test-scrape")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<String>> testScraping() {
         String html = bcvScrapingService.testScraping();
         return ResponseEntity.ok(ApiResponse.ok("Diagnóstico BCV", html));
     }
+    */
 }
